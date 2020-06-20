@@ -103,8 +103,7 @@ setup_gfx:
   ldmfd     sp!, {pc}
 
 @ ------------------------------------------------------------------------------
-@ Clears the screen and depth buffer, setting depth to -1.0f and filling the
-@ colour buffer to a given value
+@ Fills the back buffer with a given colour value
 @
 @ Arguments:
 @   r0 - colour
@@ -115,7 +114,6 @@ setup_gfx:
 @ ------------------------------------------------------------------------------
 gfx_clear:
   stmfd     sp!, {r0 - r3}
-  ldr       r3, =0x3f800000
 
   @ Clear registers
   vmov.f32  s0,  r0
@@ -149,7 +147,7 @@ gfx_clear:
 @ ------------------------------------------------------------------------------
 @ Copies color data from back buffer to framebuffer (color data is interleaved
 @ with depth data, so it must be extracted). Sets back buffer to the default
-@ colour and depth. Every iteration of the loop processes 8 pixels. pld is used
+@ colour and depth. Every iteration of the loop processes 16 pixels. pld is used
 @ to hint the CPU to prefetch data
 @ Arguments:
 @   none
@@ -234,9 +232,9 @@ gfx_swap:
 4:
   pld       [r1, #0x100]
 
-  vldm.f32  r1, {s16 - s31}
-  vstm.f32  r0!, {s16 - s31}
-  vstm.f32  r1!, {s0 - s15}
+  vldm.f32  r1, {s16 - s31}       @ Fetch from back buffer
+  vstm.f32  r0!, {s16 - s31}      @ Copy to framebuffer
+  vstm.f32  r1!, {s0 - s15}       @ Reinitialise back buffer
 
   subs      r2, r2, #16
   bne       4b
