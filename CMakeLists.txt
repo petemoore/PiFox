@@ -42,7 +42,7 @@ SET(IMAGES
 )
 
 set( CMAKE_EXECUTABLE_SUFFIX .elf )
-set( CMAKE_ASM_FLAGS "-march=armv6zk -mfpu=vfp -g -Wa,--fatal-warnings -nostartfiles -nostdlib" )
+set( CMAKE_ASM_FLAGS "-mcpu=cortex-a53 -mfpu=neon-fp-armv8 -g -Wa,--fatal-warnings -nostartfiles -nostdlib" )
 set( CMAKE_EXE_LINKER_FLAGS "-Wl,-T,${PROJECT_SOURCE_DIR}/kernel.ld" )
 include_directories( ${CMAKE_CURRENT_SOURCE_DIR} )
 
@@ -74,6 +74,6 @@ add_executable( kernel ${SOURCES} ${IMAGES_BIN} )
 # objcopy can do that for us.
 add_custom_command(
     TARGET kernel POST_BUILD
-    COMMAND ${CMAKE_OBJCOPY} ${CMAKE_BINARY_DIR}/kernel.elf -O binary ./kernel.img
+    COMMAND ${CMAKE_OBJCOPY} --set-start=0x8000 ${CMAKE_BINARY_DIR}/kernel.elf -O binary ./kernel.img
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Convert the ELF output file to a binary image" )

@@ -36,16 +36,43 @@
 @ ------------------------------------------------------------------------------
 .align 4
 gfx_fb:
-  .int 640    @ +0x00: Physical width
-  .int 480    @ +0x04: Physical height
-  .int 640    @ +0x08: Virtual width
-  .int 480    @ +0x0C: Virtual height
-  .int 0      @ +0x10: Pitch
-  .int 32     @ +0x14: Bit depth
-  .int 0      @ +0x18: X
-  .int 0      @ +0x1C: Y
-  .int 0      @ +0x20: Address
-  .int 0      @ +0x24: Size
+  .word (gfx_fb_end-gfx_fb)     @  +0x00: Buffer size
+  .word 0                       @  +0x04: Request/response code
+  .word 0x00048003              @  +0x08: Tag 0 - Set Screen Size
+  .word 8                       @  +0x0C:   value buffer size
+  .word 0                       @  +0x10:   request: should be 0          response: 0x80000000 (success) / 0x80000001 (failure)
+  .word 640                     @  +0x14:   request: width                response: width
+  .word 480                     @  +0x18:   request: height               response: height
+  .word 0x00048004              @  +0x1C: Tag 1 - Set Virtual Screen Size
+  .word 8                       @  +0x20:   value buffer size
+  .word 0                       @  +0x24:   request: should be 0          response: 0x80000000 (success) / 0x80000001 (failure)
+  .word 640                     @  +0x28:   request: width                response: width
+  .word 480                     @  +0x2C:   request: height               response: height
+  .word 0x00048009              @  +0x30: Tag 2 - Set Virtual Offset
+  .word 8                       @  +0x34:   value buffer size
+  .word 0                       @  +0x38:   request: should be 0          response: 0x80000000 (success) / 0x80000001 (failure)
+  .word 0                       @  +0x3C:   request: x offset             response: x offset
+  .word 0                       @  +0x40:   request: y offset             response: y offset
+  .word 0x00048005              @  +0x44: Tag 3 - Set Colour Depth
+  .word 4                       @  +0x48:   value buffer size
+  .word 0                       @  +0x4C:   request: should be 0          response: 0x80000000 (success) / 0x80000001 (failure)
+  .word 32                      @  +0x50:   request: bits per pixel       response: bits per pixel
+  .word 0x00048006              @  +0x54: Tag 4 - Set Pixel Order (really is "Colour Order", not "Pixel Order")
+  .word 4                       @  +0x58:   value buffer size
+  .word 0                       @  +0x5C:   request: should be 0          response: 0x80000000 (success) / 0x80000001 (failure)
+  .word 0                       @  +0x60:   request: 0 => BGR, 1 => RGB   response: 0 => BGR, 1 => RGB
+  .word 0x00040001              @  +0x64: Tag 5 - Get (Allocate) Buffer
+  .word 8                       @  +0x68:   value buffer size (response > request, so use response size)
+  .word 0                       @  +0x6C:   request: should be 0          response: 0x80000000 (success) / 0x80000001 (failure)
+  .word 4096                    @  +0x70:   request: alignment in bytes   response: frame buffer base address
+  .word 0                       @  +0x74:   request: padding              response: frame buffer size in bytes
+  .word 0x00040008              @  +0x78: Tag 6 - Get Pitch (bytes per line)
+  .word 4                       @  +0x7C:   value buffer size
+  .word 0                       @  +0x80:   request: should be 0          response: 0x80000000 (success) / 0x80000001 (failure)
+  .word 0                       @  +0x84:   request: padding              response: bytes per line
+  .word 0                       @  +0x88: End Tags
+gfx_fb_end:
+
 .align 2
 
 @-------------------------------------------------------------------------------
@@ -67,7 +94,7 @@ setup_gfx:
   stmfd     sp!, {lr}
 
   @ Request a framebuffer config
-  ldr       r0, =0x1
+  ldr       r0, =0x8
   ldr       r1, =gfx_fb
   orr       r1, #0x40000000
   bl        mbox_write
@@ -136,7 +163,7 @@ gfx_swap:
 
   @ Compute addreses
   ldr       r0, =gfx_fb
-  ldr       r0, [r0, #0x20]
+  ldr       r0, [r0, #0x70]
   ldr       r1, =gfx_buffer
 
   @ Top half of the screen - blue gradient
@@ -249,7 +276,7 @@ gfx_draw_char:
   @ Store address of the buffer & size of the pitch
   ldr       r6, =gfx_buffer
   ldr       r7, =gfx_fb
-  ldr       r7, [r7, #0x10]       @ r7 = pitch
+  ldr       r7, [r7, #0x84]       @ r7 = pitch
 
   @ loop through the rows
 1:
@@ -425,7 +452,7 @@ gfx_draw_sprite:
   movgt       r4, r5                  @ x1
 
   ldr         r5, =gfx_fb
-  ldr         r5, [r5, #0x10]         @ r5 = pitch
+  ldr         r5, [r5, #0x84]         @ r5 = pitch
 
   ldr         r6, =gfx_buffer
   mla         r6, r5, r1, r6
@@ -508,7 +535,7 @@ gfx_draw_image:
   stmmifd     sp!, {r0 - r12, pc}
 
   ldr         r10, =gfx_fb
-  ldr         r10, [r10, #0x10]       @ r10 = pitch
+  ldr         r10, [r10, #0x84]       @ r10 = pitch
   lsl         r12, r3, #2             @ image pitch
   ldr         r11, =gfx_buffer        @ buffer
 
@@ -589,7 +616,7 @@ gfx_draw_line:
   adds        r9, r5, r6              @ err = dx - dy
 
   ldr         r10, =gfx_fb
-  ldr         r10, [r10, #0x10]       @ r10 = pitch
+  ldr         r10, [r10, #0x84]       @ r10 = pitch
 
   ldr         r11, =gfx_buffer
 1:
@@ -999,7 +1026,7 @@ draw_triangle:
 
   @ Compute scanline length
   ldr           r3, =gfx_fb
-  ldr           r3, [r3, #0x10]     @ r3 = pitch
+  ldr           r3, [r3, #0x84]     @ r3 = pitch
 
 @ ------------------------------------------------------------------------------
 @ Rasterizes the top triangle
@@ -1202,7 +1229,7 @@ gfx_draw_rect:
 
   ldr       r6, =gfx_buffer
   ldr       r7, =gfx_fb
-  ldr       r7, [r7, #0x10]       @ r7 = pitch
+  ldr       r7, [r7, #0x84]       @ r7 = pitch
 
   add       r10, r1, r3           @ r10 = y + height
 1:
@@ -1246,7 +1273,7 @@ gfx_draw_frame:
 
   ldr       r6, =gfx_buffer
   ldr       r7, =gfx_fb
-  ldr       r7, [r7, #0x10]
+  ldr       r7, [r7, #0x84]
 
   @ Draw horizontal lines
   add       r10, r1, #1

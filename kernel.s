@@ -10,6 +10,10 @@
 @ Entry point of the application
 @ ------------------------------------------------------------------------------
 kernel:
+  mov       sp, #0x8000
+  bl        setup_core
+  bl        setup_uart
+  bl        setup_mode
   bl        setup_stack
   bl        setup_ivt
   bl        setup_vfp
@@ -19,29 +23,70 @@ kernel:
   bl        setup_sound
   b         setup_game
 
+setup_core:
+  mrc       p15,0,r0,c0,c0,5
+  ands      r0,#3
+  bne       hang
+  mov       pc, lr
+
+@ ------------------------------------------------------------------------------
+@ See:
+@   * https://github.com/vanvught/rpidmx512/blob/28aacaf229e097eb0b3ba692de6ff89111b22977/firmware-template/vectors.s
+@   * https://github.com/torvalds/linux/blob/097f70b3c4d84ffccca15195bdfde3a37c0a7c0f/arch/arm/include/asm/assembler.h#L331-L361
+@   * https://github.com/alexhoppus/rpios/blob/master/uart_bootloader/boot.S
+@   * https://github.com/dwelch67/raspberrypi/tree/master/boards/pi3/aarch32/SVC
+@   * https://www.raspberrypi.org/forums/viewtopic.php?f=72&t=138201
+@ ------------------------------------------------------------------------------
+setup_mode:
+  mov       r1, lr
+  cpsid     if              @ Disable IRQ & FIQ
+  mrs       r0, cpsr        @ Check for HYP mode
+  eor       r0, r0, #0x1A
+  tst       r0, #0x1F
+  bic       r0, r0, #0x1F   @ Clear mode bits
+  orr       r0, r0, #0xD3   @ Mask IRQ/FIQ bits and set SVC mode
+  bne       2f              @ Branch if not HYP mode
+  orr       r0, r0, #0x100  @ Mask Abort bit
+  adr       lr, 3f
+  msr       spsr_cxsf, r0
+  msr       ELR_hyp, lr
+  eret
+2:
+  msr       cpsr_c, r0
+3:
+  mov       sp, #0x8000
+  mov       pc, r1
+
 @ ------------------------------------------------------------------------------
 @ Sets up stacks for all operating modes
 @ ------------------------------------------------------------------------------
 setup_stack:
   mov       r0, #0xD1       @ FIQ
-  msr       cpsr, r0
+  msr       cpsr_c, r0
   ldr       sp, =stack_fiq
   mov       r0, #0xD2       @ IRQ
-  msr       cpsr, r0
+  msr       cpsr_c, r0
   ldr       sp, =stack_irq
   mov       r0, #0xD7       @ ABT
-  msr       cpsr, r0
+  msr       cpsr_c, r0
   ldr       sp, =stack_abt
   mov       r0, #0xDB       @ UND
-  msr       cpsr, r0
+  msr       cpsr_c, r0
   ldr       sp, =stack_und
   mov       r0, #0xDF       @ SYS
-  msr       cpsr, r0
+  msr       cpsr_c, r0
   ldr       sp, =stack_sys
   mov       r0, #0xD3       @ SVC
-  msr       cpsr, r0
+  msr       cpsr_c, r0
   ldr       sp, =stack_svc
   mov       pc, lr
+
+@ ------------------------------------------------------------------------------
+@ Never returns; loops forever, waiting for interrupts
+@ ------------------------------------------------------------------------------
+hang:
+  wfi                       @ Wait for interrupt; like 'wfe' but more sleepy
+  b         hang
 
 @ ------------------------------------------------------------------------------
 @ Relocates the interrupt vector table
@@ -59,13 +104,13 @@ setup_ivt:
 @ Enables the L1 cache
 @ ------------------------------------------------------------------------------
 setup_cache:
-  mov       r0, #0
-  mcr       p15, 0, r0, c7, c7, 0     @ Invalidate caches
-  mcr       p15, 0, r0, c8, c7, 0     @ Invalidate TLB
-  mrc       p15, 0, r0, c1, c0, 0
-  ldr       r1, =0x1004
-  orr       r0, r0, r1                @ Set L1 enable bit
-  mcr       p15, 0, r0, c1, c0, 0
+@ mov       r0, #0
+@ mcr       p15, 0, r0, c7, c7, 0     @ Invalidate caches
+@ mcr       p15, 0, r0, c8, c7, 0     @ Invalidate TLB
+@ mrc       p15, 0, r0, c1, c0, 0
+@ ldr       r1, =0x1004
+@ orr       r0, r0, r1                @ Set L1 enable bit
+@ mcr       p15, 0, r0, c1, c0, 0
   mov       pc, lr
 
 @ ------------------------------------------------------------------------------
@@ -153,3 +198,194 @@ handler_undef:
   .ascii      "s28: %8x  s29: %8x  s30: %8x  s31: %8x\n"
   .ascii      "\0"
   .align 2
+
+
+
+
+
+
+@ ----------------------------------- TEMPORARY CODE ADDED FOR UART DEBUGGING -----------------------------------
+
+    .global    uart_send
+uart_send:
+    stmfd  sp!,     {fp, lr}
+    add    fp, sp, #4
+    sub    sp, sp, #8
+    mov    r3, r0
+    strb    r3, [fp, #-5]
+.L4:
+    ldr    r0, .L7
+    bl    get32
+    mov    r3, r0
+    and    r3, r3, #32
+    cmp    r3, #0
+    bne    .L6
+    b    .L4
+.L6:
+    ldrb    r3, [fp, #-5]
+    mov    r1, r3
+    ldr    r0, .L7+4
+    bl    put32
+    sub    sp, fp, #4
+    ldmfd  sp!,     {fp, lr}
+    bx    lr
+.L8:
+    .align    2
+.L7:
+    .word    1059147860
+    .word    1059147840
+
+    .global    uart_recv
+uart_recv:
+    stmfd  sp!,     {fp, lr}
+    add    fp, sp, #4
+.L12:
+    ldr    r0, .L16
+    bl    get32
+    mov    r3, r0
+    and    r3, r3, #1
+    cmp    r3, #0
+    bne    .L15
+    b    .L12
+.L15:
+    ldr    r0, .L16+4
+    bl    get32
+    mov    r3, r0
+    and    r3, r3, #255
+    mov    r0, r3
+    sub    sp, fp, #4
+    ldmfd  sp!,     {fp, lr}
+    mov pc, lr
+.L17:
+    .align    2
+.L16:
+    .word    1059147860
+    .word    1059147840
+
+setup_uart:
+    stmfd  sp!,     {fp, lr}
+    add    fp, sp, #4
+    sub    sp, sp, #8
+    ldr    r0, .L22
+    bl    get32
+    str    r0, [fp, #-8]
+    ldr    r3, [fp, #-8]
+    bic    r3, r3, #28672
+    str    r3, [fp, #-8]
+    ldr    r3, [fp, #-8]
+    orr    r3, r3, #8192
+    str    r3, [fp, #-8]
+    ldr    r3, [fp, #-8]
+    bic    r3, r3, #229376
+    str    r3, [fp, #-8]
+    ldr    r3, [fp, #-8]
+    orr    r3, r3, #65536
+    str    r3, [fp, #-8]
+    ldr    r1, [fp, #-8]
+    ldr    r0, .L22
+    bl    put32
+    mov    r1, #0
+    ldr    r0, .L22+4
+    bl    put32
+    mov    r0, #150
+    bl    delay
+    mov    r1, #49152
+    ldr    r0, .L22+8
+    bl    put32
+    mov    r0, #150
+    bl    delay
+    mov    r1, #0
+    ldr    r0, .L22+8
+    bl    put32
+    mov    r1, #1
+    ldr    r0, .L22+12
+    bl    put32
+    mov    r1, #0
+    ldr    r0, .L22+16
+    bl    put32
+    mov    r1, #0
+    ldr    r0, .L22+20
+    bl    put32
+    mov    r1, #3
+    ldr    r0, .L22+24
+    bl    put32
+    mov    r1, #0
+    ldr    r0, .L22+28
+    bl    put32
+    ldr    r1, .L22+32
+    ldr    r0, .L22+36
+    bl    put32
+    mov    r1, #3
+    ldr    r0, .L22+16
+    bl    put32
+    sub    sp, fp, #4
+    ldmfd  sp!,     {fp, lr}
+    mov pc, lr
+.L23:
+    .align    2
+.L22:
+    .word    1059061764
+    .word    1059061908
+    .word    1059061912
+    .word    1059147780
+    .word    1059147872
+    .word    1059147844
+    .word    1059147852
+    .word    1059147856
+    .word    270
+    .word    1059147880
+
+
+
+
+
+.globl put32
+put32:
+    str r1,[r0]
+    mov pc, lr
+
+.globl get32
+get32:
+    ldr r0,[r0]
+    mov pc, lr
+
+.globl delay
+delay:
+    subs r0, r0, #1
+    bne delay
+    mov pc, lr
+
+
+
+
+# On entry:
+#   r0 = hex value to convert to text and write to uart
+#   r2 = number of bits to print (multiple of 4)
+.globl uart_hex_r0
+uart_hex_r0:
+  stmfd  sp!,     {fp, lr}
+
+  stmfd  sp!,     {r0, r2}
+  mov     r0, #'0'
+  bl      uart_send
+  mov     r0, #'x'
+  bl      uart_send
+  ldmfd  sp!,      {r0, r2}
+
+  ror     r0, r0, r2
+1:
+  ror     r0, r0, #28
+  and     r3, r0, #0x0f
+  cmp     r3, #10
+  addlo   r3, #48
+  addhs   r3, #55
+
+  stmfd  sp!,     {r0, r2}
+  mov     r0, r3
+  bl      uart_send
+  ldmfd  sp!,      {r0, r2}
+
+  subs    r2, r2, #4
+  bne     1b
+  ldmfd  sp!,      {fp, lr}
+  mov pc, lr

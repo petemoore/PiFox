@@ -100,11 +100,17 @@ start_loop:
   ldr         r0, =0xFF441111
   bl          gfx_clear
 
+  mov         r0, #'A'
+  bl          uart_send
+
   @ Draw pifox title card
   ldr         r0, =pixfox
   mov         r1, #203
   mov         r2, #30
   bl          gfx_draw_image
+
+  mov         r0, #'B'
+  bl          uart_send
 
   bl          draw_sprites
   bl          draw_start

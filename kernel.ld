@@ -6,7 +6,7 @@ SECTIONS
    * In QEMU, this is hardcoded to 0x100000 (64Kb).
    * On the actual device, it can be modified, but it defaults to 0x8000 (32Kb).
    */
-  . = 0x10000;
+  . = 0x8000;
 
   /**
    * Executable code. 

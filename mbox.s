@@ -30,7 +30,7 @@ mbox_read:
   bne       2f
 
   @ Flush cache
-  mcr       p15, #0, r1, c7, c14, #0
+@ mcr       p15, #0, r1, c7, c14, #0
 
   @ Check for ready flag
   ldr       r3, [r2, #0x18]
@@ -38,7 +38,7 @@ mbox_read:
   bne       1b
 
   @ Read in data (dmb first)
-  mcr       p15, #0, r1, c7, c10, #5
+@ mcr       p15, #0, r1, c7, c10, #5
   ldr       r3, [r2, #0x00]
 
   @ Check if the channel is right
@@ -76,14 +76,14 @@ mbox_write:
   bne       2f
 
   @ Flush cache
-  mcr       p15, #0, r3, c7, c14, #0
+@ mcr       p15, #0, r3, c7, c14, #0
 
   ldr       r3, [r2, #0x18]
   tst       r3, #0x80000000
   bne       1b
 
   @ Send message (dmb first)
-  mcr       p15, #0, r3, c7, c10, #5
+@ mcr       p15, #0, r3, c7, c10, #5
   orr       r1, r0, r1
   str       r1, [r2, #0x20]
 
