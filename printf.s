@@ -1,6 +1,6 @@
 @ This file is part of the Team 28 Project
 @ Licensing information can be found in the LICENSE file
-@ (C) 2014 The Team 28 Authors. All rights reserved..global printf
+@ (C) 2014 The Team 28 Authors. All rights reserved.
 .global printf
 
 .section .text
@@ -22,6 +22,16 @@
 @   None
 @ ------------------------------------------------------------------------------
 printf:
+
+  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+  @ Skip printing text for now, since routine does not keep stack pointer 8 byte aligned @
+  @ Possible solutions:                                                                  @
+  @   * Use an alternative register to sp (e.g. r12)                                     @
+  @   * Disable stack pointer alignment check on startup (?)                             @
+  @   * Adapt code so that stack pointer is aligned on function boundaries (?)           @
+  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+  mov     pc, lr
+
   stmfd   sp!, {r0 - r12, lr} @ r0 will store address of the format string
                               @ r1 will store beginning of the output string
   add     r4, sp, #56
@@ -73,7 +83,7 @@ printf:
   cmp     r4, r5
   blo     5b
 
-  @ Print to stdout with a syscall
+  @ Print to stdout
   mov     r4, r3
   mov     r0, sp
   ldr     r1, [r3, #4]
