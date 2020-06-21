@@ -134,7 +134,9 @@ gfx_clear:
   vmov.f32  s15, r0
 
   @ Clear 16 pixels at once
-  ldr       r0, =gfx_buffer
+@ ldr       r0, =gfx_buffer
+  ldr       r0, =gfx_fb
+  ldr       r0, [r0, #0x70]
   ldr       r2, =640 * 480
 1:
   vstm.f32  r0!, {s0 - s15}

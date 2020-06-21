@@ -10,7 +10,6 @@
 @ Entry point of the application
 @ ------------------------------------------------------------------------------
 kernel:
-  mov       sp, #0x8000
   bl        setup_core
   bl        setup_uart
   bl        setup_mode
@@ -38,8 +37,11 @@ setup_core:
 @   * https://www.raspberrypi.org/forums/viewtopic.php?f=72&t=138201
 @ ------------------------------------------------------------------------------
 setup_mode:
-  mov       r1, lr
+  mov       r10, lr
   cpsid     if              @ Disable IRQ & FIQ
+  mrs       r0, cpsr
+  mov       r2, #32
+  bl        uart_hex_r0     @ log all 32 bits of CPSR = 0x600001DA =
   mrs       r0, cpsr        @ Check for HYP mode
   eor       r0, r0, #0x1A
   tst       r0, #0x1F
@@ -55,7 +57,10 @@ setup_mode:
   msr       cpsr_c, r0
 3:
   mov       sp, #0x8000
-  mov       pc, r1
+  mrs       r0, cpsr
+  mov       r2, #32
+  bl        uart_hex_r0     @ log all 32 bits of CPSR = 0x200001D3 =
+  mov       pc, r10
 
 @ ------------------------------------------------------------------------------
 @ Sets up stacks for all operating modes
@@ -104,25 +109,59 @@ setup_ivt:
 @ Enables the L1 cache
 @ ------------------------------------------------------------------------------
 setup_cache:
+  stmfd     sp!, {fp, lr}
 @ mov       r0, #0
 @ mcr       p15, 0, r0, c7, c7, 0     @ Invalidate caches
 @ mcr       p15, 0, r0, c8, c7, 0     @ Invalidate TLB
-  mrc       p15, 0, r0, c1, c0, 0     @ r0 = System Control Register
+  mrc       p15, 0, r0, c1, c0, 0     @ r0 = SCTLR
   ldr       r1, =0x1004               @ r1 = data cache enable        (0x0004)
                                       @    & instruction cache enable (0x1000)
   orr       r0, r0, r1                @ Mask bits on
   mcr       p15, 0, r0, c1, c0, 0     @ Apply update
+  mov       r0, #'S'
+  bl        uart_send
+  mrc       p15, 0, r0, c1, c0, 0     @ Read value back
+  mov       r2, #32
+  bl        uart_hex_r0               @ log all 32 bits of SCTLR = 0x00C5183C = 0000 0000 1100 0101 0001 1000 0011 1100
+                                      @ bits on: 2, 3, 4, 5, 11, 12, 16, 18, 22, 23
+@ VBAR
+                                      @
+  ldmfd     sp!, {fp, lr}
   mov       pc, lr
 
 @ ------------------------------------------------------------------------------
 @ Enables the vectored floating point unit
 @ ------------------------------------------------------------------------------
 setup_vfp:
-  mrc       p15, #0, r0, c1, c0, #2
+  stmfd     sp!, {fp, lr}
+  mrc       p15, 0, r0, c1, c0, 2
   orr       r0, r0, #0xF00000         @ Single + double precision
-  mcr       p15, #0, r0, c1, c0, #2
+  mcr       p15, 0, r0, c1, c0, 2
   mov       r0, #0x40000000           @ Set VFP enable bit
   fmxr      fpexc, r0
+  mov       r0, #'N'
+  bl        uart_send
+  mrc       p15, 0, r0, c1, c1, 2
+  mov       r2, #32
+  bl        uart_hex_r0               @ log all 32 bits of NSACR = 0x00000C00 = 0000 0000 0000 0000 0000 1100 0000 0000
+                                      @ bits on: 10, 11
+                                      @ cp10/cp11 "Advanced SIMD and floating-point features can be accessed from both Security states"
+  mov       r0, #'C'
+  bl        uart_send
+  mrc       p15, 0, r0, c1, c0, 2
+  mov       r2, #32
+  bl        uart_hex_r0               @ log all 32 bits of CPACR = 0x00F00000 = 0000 0000 1111 0000 0000 0000 0000 0000
+                                      @ bits on: 20, 21, 22, 23
+                                      @ cp10/cp11 "This control permits full access to the floating-point and Advanced SIMD functionality from PL0 and PL1"
+                                      @ "The CPACR has no effect on floating-point and Advanced SIMD accesses from PL2. These can be disabled by the HCPTR.TCP10 field."
+@ mov       r0, #'H'
+@ bl        uart_send
+@ mrc       p15, 4, r0, c1, c1, 2
+@ mov       r2, #32
+@ bl        uart_hex_r0               @ log all 32 bits of HCPTR
+  mov       r0, #'.'
+  bl        uart_send
+  ldmfd     sp!, {fp, lr}
   mov       pc, lr
 
 @ ------------------------------------------------------------------------------
@@ -216,7 +255,7 @@ uart_send:
     strb    r3, [fp, #-5]
 .L4:
     ldr    r0, .L7
-    bl    get32
+    ldr    r0, [r0]
     mov    r3, r0
     and    r3, r3, #32
     cmp    r3, #0
@@ -226,7 +265,7 @@ uart_send:
     ldrb    r3, [fp, #-5]
     mov    r1, r3
     ldr    r0, .L7+4
-    bl    put32
+    str    r1,[r0]
     sub    sp, fp, #4
     ldmfd  sp!,     {fp, lr}
     bx    lr
@@ -242,7 +281,7 @@ uart_recv:
     add    fp, sp, #4
 .L12:
     ldr    r0, .L16
-    bl    get32
+    ldr    r0, [r0]
     mov    r3, r0
     and    r3, r3, #1
     cmp    r3, #0
@@ -250,7 +289,7 @@ uart_recv:
     b    .L12
 .L15:
     ldr    r0, .L16+4
-    bl    get32
+    ldr    r0, [r0]
     mov    r3, r0
     and    r3, r3, #255
     mov    r0, r3
@@ -268,7 +307,7 @@ setup_uart:
     add    fp, sp, #4
     sub    sp, sp, #8
     ldr    r0, .L22
-    bl    get32
+    ldr    r0, [r0]
     str    r0, [fp, #-8]
     ldr    r3, [fp, #-8]
     bic    r3, r3, #28672
@@ -284,41 +323,43 @@ setup_uart:
     str    r3, [fp, #-8]
     ldr    r1, [fp, #-8]
     ldr    r0, .L22
-    bl    put32
+    str    r1,[r0]
     mov    r1, #0
     ldr    r0, .L22+4
-    bl    put32
+    str    r1,[r0]
     mov    r0, #150
-    bl    delay
+1:  subs   r0, r0, #1
+    bne    1b
     mov    r1, #49152
     ldr    r0, .L22+8
-    bl    put32
+    str    r1,[r0]
     mov    r0, #150
-    bl    delay
+2:  subs   r0, r0, #1
+    bne    2b
     mov    r1, #0
     ldr    r0, .L22+8
-    bl    put32
+    str    r1,[r0]
     mov    r1, #1
     ldr    r0, .L22+12
-    bl    put32
+    str    r1,[r0]
     mov    r1, #0
     ldr    r0, .L22+16
-    bl    put32
+    str    r1,[r0]
     mov    r1, #0
     ldr    r0, .L22+20
-    bl    put32
+    str    r1,[r0]
     mov    r1, #3
     ldr    r0, .L22+24
-    bl    put32
+    str    r1,[r0]
     mov    r1, #0
     ldr    r0, .L22+28
-    bl    put32
+    str    r1,[r0]
     ldr    r1, .L22+32
     ldr    r0, .L22+36
-    bl    put32
+    str    r1,[r0]
     mov    r1, #3
     ldr    r0, .L22+16
-    bl    put32
+    str    r1,[r0]
     sub    sp, fp, #4
     ldmfd  sp!,     {fp, lr}
     mov pc, lr
@@ -340,28 +381,11 @@ setup_uart:
 
 
 
-.globl put32
-put32:
-    str r1,[r0]
-    mov pc, lr
-
-.globl get32
-get32:
-    ldr r0,[r0]
-    mov pc, lr
-
-.globl delay
-delay:
-    subs r0, r0, #1
-    bne delay
-    mov pc, lr
 
 
-
-
-# On entry:
-#   r0 = hex value to convert to text and write to uart
-#   r2 = number of bits to print (multiple of 4)
+@ On entry:
+@   r0 = hex value to convert to text and write to uart
+@   r2 = number of bits to print (multiple of 4)
 .globl uart_hex_r0
 uart_hex_r0:
   stmfd  sp!,     {fp, lr}
@@ -388,5 +412,9 @@ uart_hex_r0:
 
   subs    r2, r2, #4
   bne     1b
+  mov     r0, #10
+  bl      uart_send
+  mov     r0, #13
+  bl      uart_send
   ldmfd  sp!,      {fp, lr}
   mov pc, lr
