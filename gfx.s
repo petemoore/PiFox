@@ -145,8 +145,8 @@ gfx_clear:
 
   mov       r0, #'M'
   bl        uart_send
-  mov       r0, #55555555
-  mov       r3, #12345678
+  ldr       r0, =0x55555555
+  ldr       r3, =0x12345678
   vmov.f32  s7, r3
   vmov.f32  r0, s7
   mov       r2, #32
