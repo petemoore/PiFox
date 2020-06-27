@@ -113,7 +113,7 @@ setup_gfx:
 @   s0 - s16
 @ ------------------------------------------------------------------------------
 gfx_clear:
-  stmfd     sp!, {r0 - r3, lr}
+  stmfd     sp!, {r0 - r3}
 
   @ Clear registers
   vmov.f32  s0,  r0
@@ -134,66 +134,14 @@ gfx_clear:
   vmov.f32  s15, r0
 
   @ Clear 16 pixels at once
-  ldr       r1, =gfx_buffer
-@ ldr       r1, =gfx_fb
-  ldr       r1, [r1, #0x70]
-  and       r1, r1, #0x3fffffff    @ Convert bus address to physical address
+  ldr       r0, =gfx_buffer
   ldr       r2, =640 * 480
-
-  stmfd     sp!, {r0 - r12, lr}
-  mov       r0, #'>'
-  bl        uart_send
-  ldmfd     sp!, {r0 - r12, lr}
-  stmfd     sp!, {r0 - r12, lr}
-  mov       r0, r1
-  mov       r2, #32
-  bl        uart_hex_r0
-  ldmfd     sp!, {r0 - r12, lr}
-
-mov r0, #0xffffffff
-
 1:
-@ vstm.f32  r1!, {s0 - s15}
-  stmia     r1!, {r0}
-  stmia     r1!, {r0}
-  stmia     r1!, {r0}
-  stmia     r1!, {r0}
-  stmia     r1!, {r0}
-  stmia     r1!, {r0}
-  stmia     r1!, {r0}
-  stmia     r1!, {r0}
-  stmia     r1!, {r0}
-  stmia     r1!, {r0}
-  stmia     r1!, {r0}
-  stmia     r1!, {r0}
-  stmia     r1!, {r0}
-  stmia     r1!, {r0}
-  stmia     r1!, {r0}
-  stmia     r1!, {r0}
+  vstm.f32  r0!, {s0 - s15}
   subs      r2, r2, #16
   bne       1b
 
-  stmfd     sp!, {r0 - r12, lr}
-  mov       r0, #'X'
-  bl        uart_send
-  ldmfd     sp!, {r0 - r12, lr}
-  stmfd     sp!, {r0 - r12, lr}
-  mov       r0, r1
-  mov       r2, #32
-  bl        uart_hex_r0
-  ldmfd     sp!, {r0 - r12, lr}
-
-
-  mov       r0, #'M'
-  bl        uart_send
-  ldr       r0, =0x55555555
-  ldr       r3, =0x12345678
-  vmov.f32  s7, r3
-  vmov.f32  r0, s7
-  mov       r2, #32
-  bl        uart_hex_r0
-
-  ldmfd     sp!, {r0 - r3, lr}
+  ldmfd     sp!, {r0 - r3}
   mov       pc, lr
 
 @ ------------------------------------------------------------------------------

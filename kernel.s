@@ -41,33 +41,30 @@ setup_core:
 setup_mode:
   mov       r10, lr
   cpsid     if              @ Disable IRQ & FIQ
-  mov       r0, #'H'
-  bl        uart_send
-  mrc       p15, 4, r0, c1, c1, 2
-  mov       r2, #32
-  bl        uart_hex_r0     @ log all 32 bits of HCPTR = 0x000033FF = 0000 0000 0000 0000 0011 0011 1111 1111
-                            @ bits set: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 13
-                            @ => no traps set at all
-  mrs       r0, cpsr
-  mov       r2, #32
-  bl        uart_hex_r0     @ log all 32 bits of CPSR  = 0x200001DA = 0010 0000 0000 0000 0000 0001 1101 1010
-                            @ bits set: 1, 3, 4, 6, 7, 8, 29
-                            @ M = 0xA => Hyp mode
-                            @ F = 0x1 => FIQ masked
-                            @ I = 0x1 => IRQ masked
-                            @ A = 0x1 => SError (abort) interrupt masked
-                            @ E = 0x0 => Little endian
-                            @ GE = 0x0
-                            @ DIT = 0x0 => The architecture makes no statement about the timing properties of any instructions.
-                            @ PAN = 0x0 => The translation system is the same as ARMv8.0.
-                            @ Q = 0x0
-                            @ V = 0x0
-                            @ C = 0x1
-                            @ Z = 0x0
-                            @ N = 0x0
+
+@ HCPTR = 0x000033FF = 0000 0000 0000 0000 0011 0011 1111 1111
+@   bits set: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 13
+@   => no traps set at all
+
+@ CPSR  = 0x200001DA = 0010 0000 0000 0000 0000 0001 1101 1010
+@   bits set: 1, 3, 4, 6, 7, 8, 29
+@   M = 0xA => Hyp mode
+@   F = 0x1 => FIQ masked
+@   I = 0x1 => IRQ masked
+@   A = 0x1 => SError (abort) interrupt masked
+@   E = 0x0 => Little endian
+@   GE = 0x0
+@   DIT = 0x0 => The architecture makes no statement about the timing properties of any instructions.
+@   PAN = 0x0 => The translation system is the same as ARMv8.0.
+@   Q = 0x0
+@   V = 0x0
+@   C = 0x1
+@   Z = 0x0
+@   N = 0x0
+
   mrs       r0, cpsr        @ Check for HYP mode
   eor       r0, r0, #0x1A   @ Flip bits 1, 3, 4
-  tst       r0, #0x1F       @ Set Z flag if mode = HYP
+  tst       r0, #0x1F       @ Set Z flag if mode == HYP
   bic       r0, r0, #0x1F   @ Clear mode and bit 4 (RES 1)
   orr       r0, r0, #0xD3   @ Mask IRQ/FIQ bits and set SVC mode
   bne       2f              @ Jump to 2f if not HYP mode
@@ -104,25 +101,21 @@ setup_stack:
   msr       cpsr_c, r0
   ldr       sp, =stack_svc
 
-  stmfd     sp!, {fp, lr}
-  mrs       r0, cpsr
-  mov       r2, #32
-  bl        uart_hex_r0     @ log all 32 bits of CPSR = 0x200001D3 = 0010 0000 0000 0000 0000 0001 1101 0011
-                            @ bits set: 0, 1, 4, 6, 7, 8, 29
-                            @ M = 0x3 => Supervisor mode
-                            @ F = 0x1 => FIQ masked
-                            @ I = 0x1 => IRQ masked
-                            @ A = 0x1 => SError interrupt masked
-                            @ E = 0x0 => Little endian
-                            @ GE = 0x0
-                            @ DIT = 0x0 => The architecture makes no statement about the timing properties of any instructions.
-                            @ PAN = 0x0 => The translation system is the same as ARMv8.0.
-                            @ Q = 0x0
-                            @ V = 0x0
-                            @ C = 0x1
-                            @ Z = 0x0
-                            @ N = 0x0
-  ldmfd     sp!, {fp, lr}
+@ CPSR  = 0x200001D3 = 0010 0000 0000 0000 0000 0001 1101 0011
+@   bits set: 0, 1, 4, 6, 7, 8, 29
+@   M = 0x3 => Supervisor mode
+@   F = 0x1 => FIQ masked
+@   I = 0x1 => IRQ masked
+@   A = 0x1 => SError interrupt masked
+@   E = 0x0 => Little endian
+@   GE = 0x0
+@   DIT = 0x0 => The architecture makes no statement about the timing properties of any instructions.
+@   PAN = 0x0 => The translation system is the same as ARMv8.0.
+@   Q = 0x0
+@   V = 0x0
+@   C = 0x1
+@   Z = 0x0
+@   N = 0x0
 
   mov       pc, lr
 
@@ -149,7 +142,6 @@ setup_ivt:
 @ Enables the L1 cache
 @ ------------------------------------------------------------------------------
 setup_cache:
-  stmfd     sp!, {fp, lr}
 @ mov       r0, #0
 @ mcr       p15, 0, r0, c7, c7, 0     @ Invalidate caches
 @ mcr       p15, 0, r0, c8, c7, 0     @ Invalidate TLB
@@ -158,61 +150,39 @@ setup_cache:
                                       @    & instruction cache enable (0x1000)
   orr       r0, r0, r1                @ Mask bits on
   mcr       p15, 0, r0, c1, c0, 0     @ Apply update
-  mov       r0, #'S'
-  bl        uart_send
-  mrc       p15, 0, r0, c1, c0, 0     @ Read value back
-  mov       r2, #32
-  bl        uart_hex_r0               @ log all 32 bits of SCTLR = 0x00C5183C = 0000 0000 1100 0101 0001 1000 0011 1100
-                                      @ bits set: 2, 3, 4, 5, 11, 12, 16, 18, 22, 23
 
-  mov       r0, #'V'
-  bl        uart_send
-  mrc       p15, 0, r0, c12, c0, 0    @ r0 = VBAR
-  mov       r2, #32
-  bl        uart_hex_r0               @ log all 32 bits of VBAR = 0x00000000 = 0000 0000 0000 0000 0000 0000 0000 0000
-                                      @ bits set: <none>
+@ SCTLR = 0x00C5183C = 0000 0000 1100 0101 0001 1000 0011 1100
+@   bits set: 2, 3, 4, 5, 11, 12, 16, 18, 22, 23
 
-  ldmfd     sp!, {fp, lr}
+@ VBAR  = 0x00000000 = 0000 0000 0000 0000 0000 0000 0000 0000
+
   mov       pc, lr
 
 @ ------------------------------------------------------------------------------
 @ Enables the vectored floating point unit
 @ ------------------------------------------------------------------------------
 setup_vfp:
-  stmfd     sp!, {fp, lr}
   mrc       p15, 0, r0, c1, c0, 2
   orr       r0, r0, #0xF00000         @ Single + double precision
   mcr       p15, 0, r0, c1, c0, 2
-  vmrs      r0, fpexc
-  mov       r2, #32
-  bl        uart_hex_r0               @ log all 32 bits of FPEXC = 0x00000700
-                                      @ bits set: 8, 9, 10, 30
-                                      @ Defaults, no exceptions, special handling etc
+
+@ FPEXC = 0x00000700
+@   bits set: 8, 9, 10, 30
+@   => standard defaults, no exceptions or special handling etc
+
   vmrs      r0, fpexc
   orr       r0, #0x40000000           @ Set VFP enable bit
   vmsr      fpexc, r0
-  vmrs      r0, fpexc
-  mov       r2, #32
-  bl        uart_hex_r0               @ log all 32 bits of FPEXC = 0x40000700
-                                      @ bits set: 8, 9, 10, 30
-  mov       r0, #'N'
-  bl        uart_send
-  mrc       p15, 0, r0, c1, c1, 2
-  mov       r2, #32
-  bl        uart_hex_r0               @ log all 32 bits of NSACR = 0x00000C00 = 0000 0000 0000 0000 0000 1100 0000 0000
-                                      @ bits set: 10, 11
-                                      @ cp10/cp11 "Advanced SIMD and floating-point features can be accessed from both Security states"
-  mov       r0, #'C'
-  bl        uart_send
-  mrc       p15, 0, r0, c1, c0, 2
-  mov       r2, #32
-  bl        uart_hex_r0               @ log all 32 bits of CPACR = 0x00F00000 = 0000 0000 1111 0000 0000 0000 0000 0000
-                                      @ bits set: 20, 21, 22, 23
-                                      @ cp10/cp11 "This control permits full access to the floating-point and Advanced SIMD functionality from PL0 and PL1"
-                                      @ "The CPACR has no effect on floating-point and Advanced SIMD accesses from PL2. These can be disabled by the HCPTR.TCP10 field."
-  mov       r0, #'.'
-  bl        uart_send
-  ldmfd     sp!, {fp, lr}
+
+@ NSACR = 0x00000C00 = 0000 0000 0000 0000 0000 1100 0000 0000
+@   bits set: 10, 11
+@   cp10/cp11 "Advanced SIMD and floating-point features can be accessed from both Security states"
+
+@ CPACR = 0x00F00000 = 0000 0000 1111 0000 0000 0000 0000 0000
+@   bits set: 20, 21, 22, 23
+@   cp10/cp11 "This control permits full access to the floating-point and Advanced SIMD functionality from PL0 and PL1"
+@   "The CPACR has no effect on floating-point and Advanced SIMD accesses from PL2. These can be disabled by the HCPTR.TCP10 field."
+
   mov       pc, lr
 
 @ ------------------------------------------------------------------------------
@@ -256,7 +226,7 @@ handler_undef:
   stmfd       sp!, {lr}
 
   @ Nice blue background
-  ldr         r0, =0xFFFF0000
+  ldr         r0, =0xFF0000FF
   bl          gfx_clear
 
   @ Print address
@@ -297,7 +267,7 @@ handler_undef:
 
 @ ----------------------------------- TEMPORARY CODE ADDED FOR UART DEBUGGING -----------------------------------
 
-    .global    uart_send
+.global    uart_send
 uart_send:
     stmfd  sp!,     {fp, lr}
     add    fp, sp, #4
@@ -326,7 +296,8 @@ uart_send:
     .word    1059147860
     .word    1059147840
 
-    .global    uart_recv
+
+.global    uart_recv
 uart_recv:
     stmfd  sp!,     {fp, lr}
     add    fp, sp, #4
@@ -352,6 +323,7 @@ uart_recv:
 .L16:
     .word    1059147860
     .word    1059147840
+
 
 setup_uart:
     stmfd  sp!,     {fp, lr}

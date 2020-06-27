@@ -97,56 +97,8 @@ setup_game:
 @ Start screen displayed on boot
 @ ------------------------------------------------------------------------------
 start_loop:
-
-  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-  @ Paint blue screen to be sure framebuffer allocation worked @
-  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-
-  ldr       r5, =gfx_fb
-  ldr       r6, [r5, #0x84]        @ r6 = pitch (bytes per horizontal line of framebuffer)
-  ldr       r5, [r5, #0x70]        @ r5 = allocated framebuffer address
-
-  stmfd     sp!, {r0 - r12, lr}
-  mov       r0, #'%'
-  bl        uart_send
-  ldmfd     sp!, {r0 - r12, lr}
-  stmfd     sp!, {r0 - r12, lr}
-  mov       r0, r5
-  mov       r2, #32
-  bl        uart_hex_r0
-  ldmfd     sp!, {r0 - r12, lr}
-
-  and       r5, r5, #0x3fffffff    @ Convert bus address to physical address
-  mov       r11, #(640 * 4)        @ r11 = bytes for pixel data per horizontal line of framebuffer
-  sub       r6, r6, r11            @ r6 = number of padding bytes at end of horizontal line
-  mov       r7, #480               @ Number of horizontal lines.
-  mov       r8, #0x000000ff        @ r8 = bright blue in BGR encoding
-  fill_buffer:                     @ Fill the entire framebuffer with blue pixels.
-    mov       r9, #640             @ r9 = number of points in horizontal line of framebuffer.
-    fill_line:                     @ Fill a single row of the framebuffer with blue pixels.
-      str       r8, [r5], #4       @ Make current point bright blue, and update r5 to next point.
-      subs      r9, r9, #1         @ Decrease horizontal pixel counter.
-      bne       fill_line          @ Repeat until line complete.
-    add       r5, r5, r6           @ Update r5 to start of next line.
-    subs      r7, r7, #1           @ Decrease vertical pixel counter.
-    bne       fill_buffer          @ Repeat until all framebuffer lines complete.
-
-  stmfd     sp!, {r0 - r12, lr}
-  mov       r0, #'x'
-  bl        uart_send
-  ldmfd     sp!, {r0 - r12, lr}
-  stmfd     sp!, {r0 - r12, lr}
-  mov       r0, r5
-  mov       r2, #32
-  bl        uart_hex_r0
-  ldmfd     sp!, {r0 - r12, lr}
-
-
-  ldr         r0, =0xFF441111
+  ldr         r0, =0xFF111144
   bl          gfx_clear
-
-  mov         r0, #'A'
-  bl          uart_send
 
   @ Draw pifox title card
   ldr         r0, =pifox
@@ -154,23 +106,9 @@ start_loop:
   mov         r2, #30
   bl          gfx_draw_image
 
-  mov         r0, #'B'
-  bl          uart_send
-
   bl          draw_sprites
-
-  mov         r0, #'C'
-  bl          uart_send
-
   bl          draw_start
-
-  mov         r0, #'D'
-  bl          uart_send
-
   bl          gfx_swap
-
-  mov         r0, #'E'
-  bl          uart_send
 
   bl          update_sound
   bl          update_input
