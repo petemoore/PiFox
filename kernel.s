@@ -29,6 +29,8 @@ setup_core:
   mov       pc, lr
 
 @ ------------------------------------------------------------------------------
+@ Enter Supervisor Mode (EL1) from other EL1 mode, or from Hypervisor mode (EL2)
+@
 @ See:
 @   * https://github.com/vanvught/rpidmx512/blob/28aacaf229e097eb0b3ba692de6ff89111b22977/firmware-template/vectors.s
 @   * https://github.com/torvalds/linux/blob/097f70b3c4d84ffccca15195bdfde3a37c0a7c0f/arch/arm/include/asm/assembler.h#L331-L361
@@ -70,28 +72,10 @@ setup_mode:
 2:
   msr       cpsr_c, r0      @ Update only the mode and IRQ/FIQ mask bits
 3:
-  mov       sp, #0x8000
-  mrs       r0, cpsr
-  mov       r2, #32
-  bl        uart_hex_r0     @ log all 32 bits of CPSR = 0x200001D3 = 0010 0000 0000 0000 0000 0001 1101 0011
-                            @ bits set: 0, 1, 4, 6, 7, 8, 29
-                            @ M = 0x3 => Supervisor mode
-                            @ F = 0x1 => FIQ masked
-                            @ I = 0x1 => IRQ masked
-                            @ A = 0x1 => SError interrupt masked
-                            @ E = 0x0 => Little endian
-                            @ GE = 0x0
-                            @ DIT = 0x0 => The architecture makes no statement about the timing properties of any instructions.
-                            @ PAN = 0x0 => The translation system is the same as ARMv8.0.
-                            @ Q = 0x0
-                            @ V = 0x0
-                            @ C = 0x1
-                            @ Z = 0x0
-                            @ N = 0x0
   mov       pc, r10
 
 @ ------------------------------------------------------------------------------
-@ Sets up stacks for all operating modes
+@ Sets up stacks for all EL1 operating modes
 @ ------------------------------------------------------------------------------
 setup_stack:
   mov       r0, #0xD1       @ FIQ
@@ -112,6 +96,27 @@ setup_stack:
   mov       r0, #0xD3       @ SVC
   msr       cpsr_c, r0
   ldr       sp, =stack_svc
+
+  stmfd     sp!, {fp, lr}
+  mrs       r0, cpsr
+  mov       r2, #32
+  bl        uart_hex_r0     @ log all 32 bits of CPSR = 0x200001D3 = 0010 0000 0000 0000 0000 0001 1101 0011
+                            @ bits set: 0, 1, 4, 6, 7, 8, 29
+                            @ M = 0x3 => Supervisor mode
+                            @ F = 0x1 => FIQ masked
+                            @ I = 0x1 => IRQ masked
+                            @ A = 0x1 => SError interrupt masked
+                            @ E = 0x0 => Little endian
+                            @ GE = 0x0
+                            @ DIT = 0x0 => The architecture makes no statement about the timing properties of any instructions.
+                            @ PAN = 0x0 => The translation system is the same as ARMv8.0.
+                            @ Q = 0x0
+                            @ V = 0x0
+                            @ C = 0x1
+                            @ Z = 0x0
+                            @ N = 0x0
+  ldmfd     sp!, {fp, lr}
+
   mov       pc, lr
 
 @ ------------------------------------------------------------------------------
@@ -122,7 +127,7 @@ hang:
   b         hang
 
 @ ------------------------------------------------------------------------------
-@ Relocates the interrupt vector table
+@ Relocates the interrupt vector table to start of RAM
 @ ------------------------------------------------------------------------------
 setup_ivt:
   ldr       r10, =ivt_start
