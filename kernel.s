@@ -41,10 +41,17 @@ setup_core:
 setup_mode:
   mov       r10, lr
   cpsid     if              @ Disable IRQ & FIQ
+  mov       r0, #'H'
+  bl        uart_send
+  mrc       p15, 4, r0, c1, c1, 2
+  mov       r2, #32
+  bl        uart_hex_r0     @ log all 32 bits of HCPTR = 0x000033FF = 0000 0000 0000 0000 0011 0011 1111 1111
+                            @ bits set: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 13
+                            @ => no traps set at all
   mrs       r0, cpsr
   mov       r2, #32
-  bl        uart_hex_r0     @ log all 32 bits of CPSR = 0x600001DA = 0110 0000 0000 0000 0000 0001 1101 1010
-                            @ bits set: 1, 3, 4, 6, 7, 8, 29, 30
+  bl        uart_hex_r0     @ log all 32 bits of CPSR  = 0x200001DA = 0010 0000 0000 0000 0000 0001 1101 1010
+                            @ bits set: 1, 3, 4, 6, 7, 8, 29
                             @ M = 0xA => Hyp mode
                             @ F = 0x1 => FIQ masked
                             @ I = 0x1 => IRQ masked
@@ -56,7 +63,7 @@ setup_mode:
                             @ Q = 0x0
                             @ V = 0x0
                             @ C = 0x1
-                            @ Z = 0x1
+                            @ Z = 0x0
                             @ N = 0x0
   mrs       r0, cpsr        @ Check for HYP mode
   eor       r0, r0, #0x1A   @ Flip bits 1, 3, 4
@@ -157,8 +164,14 @@ setup_cache:
   mov       r2, #32
   bl        uart_hex_r0               @ log all 32 bits of SCTLR = 0x00C5183C = 0000 0000 1100 0101 0001 1000 0011 1100
                                       @ bits set: 2, 3, 4, 5, 11, 12, 16, 18, 22, 23
-@ VBAR
-                                      @
+
+  mov       r0, #'V'
+  bl        uart_send
+  mrc       p15, 0, r0, c12, c0, 0    @ r0 = VBAR
+  mov       r2, #32
+  bl        uart_hex_r0               @ log all 32 bits of VBAR = 0x00000000 = 0000 0000 0000 0000 0000 0000 0000 0000
+                                      @ bits set: <none>
+
   ldmfd     sp!, {fp, lr}
   mov       pc, lr
 
@@ -174,7 +187,9 @@ setup_vfp:
   mov       r2, #32
   bl        uart_hex_r0               @ log all 32 bits of FPEXC = 0x00000700
                                       @ bits set: 8, 9, 10, 30
-  mov       r0, #0x40000000           @ Set VFP enable bit
+                                      @ Defaults, no exceptions, special handling etc
+  vmrs      r0, fpexc
+  orr       r0, #0x40000000           @ Set VFP enable bit
   vmsr      fpexc, r0
   vmrs      r0, fpexc
   mov       r2, #32
@@ -195,11 +210,6 @@ setup_vfp:
                                       @ bits set: 20, 21, 22, 23
                                       @ cp10/cp11 "This control permits full access to the floating-point and Advanced SIMD functionality from PL0 and PL1"
                                       @ "The CPACR has no effect on floating-point and Advanced SIMD accesses from PL2. These can be disabled by the HCPTR.TCP10 field."
-@ mov       r0, #'H'
-@ bl        uart_send
-@ mrc       p15, 4, r0, c1, c1, 2
-@ mov       r2, #32
-@ bl        uart_hex_r0               @ log all 32 bits of HCPTR
   mov       r0, #'.'
   bl        uart_send
   ldmfd     sp!, {fp, lr}

@@ -143,6 +143,15 @@ gfx_clear:
   subs      r2, r2, #16
   bne       1b
 
+  mov       r0, #'M'
+  bl        uart_send
+  mov       r0, #55555555
+  mov       r3, #12345678
+  vmov.f32  s7, r3
+  vmov.f32  r0, s7
+  mov       r2, #32
+  bl        uart_hex_r0
+
   ldmfd     sp!, {r0 - r3}
   mov       pc, lr
 
