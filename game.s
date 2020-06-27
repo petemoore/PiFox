@@ -105,7 +105,18 @@ start_loop:
   ldr       r5, =gfx_fb
   ldr       r6, [r5, #0x84]        @ r6 = pitch (bytes per horizontal line of framebuffer)
   ldr       r5, [r5, #0x70]        @ r5 = allocated framebuffer address
-  and       r5, r5, #0x3fffffff    @ Clear upper bits beyond addressable memory
+
+  stmfd     sp!, {r0 - r12, lr}
+  mov       r0, #'%'
+  bl        uart_send
+  ldmfd     sp!, {r0 - r12, lr}
+  stmfd     sp!, {r0 - r12, lr}
+  mov       r0, r5
+  mov       r2, #32
+  bl        uart_hex_r0
+  ldmfd     sp!, {r0 - r12, lr}
+
+  and       r5, r5, #0x3fffffff    @ Convert bus address to physical address
   mov       r11, #(640 * 4)        @ r11 = bytes for pixel data per horizontal line of framebuffer
   sub       r6, r6, r11            @ r6 = number of padding bytes at end of horizontal line
   mov       r7, #480               @ Number of horizontal lines.
@@ -119,6 +130,17 @@ start_loop:
     add       r5, r5, r6           @ Update r5 to start of next line.
     subs      r7, r7, #1           @ Decrease vertical pixel counter.
     bne       fill_buffer          @ Repeat until all framebuffer lines complete.
+
+  stmfd     sp!, {r0 - r12, lr}
+  mov       r0, #'x'
+  bl        uart_send
+  ldmfd     sp!, {r0 - r12, lr}
+  stmfd     sp!, {r0 - r12, lr}
+  mov       r0, r5
+  mov       r2, #32
+  bl        uart_hex_r0
+  ldmfd     sp!, {r0 - r12, lr}
+
 
   ldr         r0, =0xFF441111
   bl          gfx_clear

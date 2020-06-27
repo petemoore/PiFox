@@ -113,7 +113,7 @@ setup_gfx:
 @   s0 - s16
 @ ------------------------------------------------------------------------------
 gfx_clear:
-  stmfd     sp!, {r0 - r3}
+  stmfd     sp!, {r0 - r3, lr}
 
   @ Clear registers
   vmov.f32  s0,  r0
@@ -134,14 +134,55 @@ gfx_clear:
   vmov.f32  s15, r0
 
   @ Clear 16 pixels at once
-@ ldr       r0, =gfx_buffer
-  ldr       r0, =gfx_fb
-  ldr       r0, [r0, #0x70]
+  ldr       r1, =gfx_buffer
+@ ldr       r1, =gfx_fb
+  ldr       r1, [r1, #0x70]
+  and       r1, r1, #0x3fffffff    @ Convert bus address to physical address
   ldr       r2, =640 * 480
+
+  stmfd     sp!, {r0 - r12, lr}
+  mov       r0, #'>'
+  bl        uart_send
+  ldmfd     sp!, {r0 - r12, lr}
+  stmfd     sp!, {r0 - r12, lr}
+  mov       r0, r1
+  mov       r2, #32
+  bl        uart_hex_r0
+  ldmfd     sp!, {r0 - r12, lr}
+
+mov r0, #0xffffffff
+
 1:
-  vstm.f32  r0!, {s0 - s15}
+@ vstm.f32  r1!, {s0 - s15}
+  stmia     r1!, {r0}
+  stmia     r1!, {r0}
+  stmia     r1!, {r0}
+  stmia     r1!, {r0}
+  stmia     r1!, {r0}
+  stmia     r1!, {r0}
+  stmia     r1!, {r0}
+  stmia     r1!, {r0}
+  stmia     r1!, {r0}
+  stmia     r1!, {r0}
+  stmia     r1!, {r0}
+  stmia     r1!, {r0}
+  stmia     r1!, {r0}
+  stmia     r1!, {r0}
+  stmia     r1!, {r0}
+  stmia     r1!, {r0}
   subs      r2, r2, #16
   bne       1b
+
+  stmfd     sp!, {r0 - r12, lr}
+  mov       r0, #'X'
+  bl        uart_send
+  ldmfd     sp!, {r0 - r12, lr}
+  stmfd     sp!, {r0 - r12, lr}
+  mov       r0, r1
+  mov       r2, #32
+  bl        uart_hex_r0
+  ldmfd     sp!, {r0 - r12, lr}
+
 
   mov       r0, #'M'
   bl        uart_send
@@ -152,7 +193,7 @@ gfx_clear:
   mov       r2, #32
   bl        uart_hex_r0
 
-  ldmfd     sp!, {r0 - r3}
+  ldmfd     sp!, {r0 - r3, lr}
   mov       pc, lr
 
 @ ------------------------------------------------------------------------------
@@ -173,6 +214,7 @@ gfx_swap:
   @ Compute addreses
   ldr       r0, =gfx_fb
   ldr       r0, [r0, #0x70]
+  and       r0, r0, #0x3fffffff    @ Convert bus address to physical address
   ldr       r1, =gfx_buffer
 
   @ Top half of the screen - blue gradient
