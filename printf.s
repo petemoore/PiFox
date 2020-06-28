@@ -22,19 +22,9 @@
 @   None
 @ ------------------------------------------------------------------------------
 printf:
-
-  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-  @ Skip printing text for now, since routine does not keep stack pointer 8 byte aligned @
-  @ Possible solutions:                                                                  @
-  @   * Use an alternative register to sp (e.g. r12)                                     @
-  @   * Disable stack pointer alignment check on startup (?)                             @
-  @   * Adapt code so that stack pointer is aligned on function boundaries (?)           @
-  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-  mov     pc, lr
-
   stmfd   sp!, {r0 - r12, lr} @ r0 will store address of the format string
                               @ r1 will store beginning of the output string
-  add     r4, sp, #56
+  add     r4, sp, #56         @ r4 = frame pointer
   mov     r3, sp
 
   ldr     lr, =1f
@@ -42,7 +32,7 @@ printf:
   mov     r2, #0
   ldrb    r1, [r0], #1        @ put next char in r1
   tst     r1, r1
-  beq     4f                  @ exit if r2 == '\0'
+  beq     4f                  @ exit if r1 == '\0'
   cmp     r1, #37
   beq     2f
   strb    r1, [sp, #-1]!      @ store character on stack
@@ -89,6 +79,7 @@ printf:
   ldr     r1, [r3, #4]
   ldr     r2, [r3, #8]
   ldr     r3, [r3, #12]
+  bic     sp, sp, #15
   bl      gfx_draw_text
 
   mov     sp, r4

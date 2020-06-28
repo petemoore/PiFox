@@ -166,7 +166,7 @@ gfx_swap:
   ldr       r1, =gfx_buffer
 
   @ Top half of the screen - blue gradient
-  ldr       r12, =0xffffee00
+  ldr       r12, =0xff00eeff
   ldr       r11, =240
 1:
   ldr       r2, =640 * 4
@@ -204,7 +204,7 @@ gfx_swap:
   bne       1b
 
   @ Bottom half of the screen - green gradient
-  ldr       r12, =0xFF8C9C63
+  ldr       r12, =0xFF639C8C
   ldr       r11, =240
 
 3:
