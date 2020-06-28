@@ -151,7 +151,7 @@ death_loop:
   bl          random
   and         r1, r0, #0x3
 1:
-  ldr         r0, =0xFF0044ff
+  ldr         r0, =0xFFFF4400
   bl          gfx_clear
   bl          draw_death
   bl          draw_sprites

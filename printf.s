@@ -79,7 +79,7 @@ printf:
   ldr     r1, [r3, #4]
   ldr     r2, [r3, #8]
   ldr     r3, [r3, #12]
-  bic     sp, sp, #15
+  bic     sp, sp, #7          @ Align stack pointer before function call
   bl      gfx_draw_text
 
   mov     sp, r4
