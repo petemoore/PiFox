@@ -11,9 +11,9 @@
 @ ------------------------------------------------------------------------------
 kernel:
   bl        setup_core
-  bl        setup_uart
   bl        setup_mode
   bl        setup_stack
+  bl        setup_uart
   bl        setup_ivt
   bl        setup_vfp
   bl        setup_gfx
